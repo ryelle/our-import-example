@@ -18,6 +18,13 @@ class Our_Import extends WP_CLI_Command {
 		WP_CLI::success( "Hello $name." );
 	}
 	
+	/**
+	 * Test the database connection
+	 */
+	public function test( $args = array(), $assoc_args = array() ) {
+		$this->setup();
+		WP_CLI::success( "Databse connected!" );
+	}
 
 
 	/**
@@ -27,15 +34,14 @@ class Our_Import extends WP_CLI_Command {
 		$database = array(
 			'host'     => '127.0.0.1',
 			'port'     => '3306',
-			'database' => 'example_custom',
-			'user'     => 'wp',
-			'pass'     => 'wp',
+			'name' => 'example_custom',
+			'user'     => 'meetup',
+			'pass'     => 'incorrect',
 		);
 		extract( $database, EXTR_SKIP );
 		try {
-			$db = new PDO( 'mysql:host=' . $host . ';port=' . $port . ';dbname=' . $database, $user, $pass, array( PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES \'UTF8\'' ) );
-			
-			return $db;
+			$db = new PDO( 'mysql:host=' . $host . ';port=' . $port . ';dbname=' . $name, $user, $pass, array( PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES \'UTF8\'' ) );
+			$this->db = $db;
 			
 		} catch ( PDOException $e ) {
 			WP_CLI::error( 'Could not connect to database: '. $e->getMessage() );
