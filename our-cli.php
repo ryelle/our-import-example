@@ -177,7 +177,7 @@ class Our_Import extends WP_CLI_Command {
 		return $author;
 	}
 	private function _convert_to_wp_cat( $cat ) {
-		return $cat
+		return $cat;
 	}
 
 }
