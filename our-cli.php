@@ -128,7 +128,7 @@ class Our_Import extends WP_CLI_Command {
 				if ( empty( $filetype['type'] ) ) // Unrecognized file type
 					continue;
 
-				if ( false !== strpos( $filename, '/oldurl/' ) ) {
+				if ( false !== strpos( $filename, 'redradar.net' ) ) {
 					$old_filename = $filename;
 				} else {
 					continue;
@@ -143,6 +143,9 @@ class Our_Import extends WP_CLI_Command {
 					WP_CLI::line( "Error: $old_filename ". $data->get_error_message() );
 				}
 			}
+			
+			// $content's been updated with the new HTML, so we need to re-save it
+			wp_update_post( array( 'ID' => $wp_id, 'post_content' => $content ) );
 		}
 
 		WP_CLI::success( "Successfully imported post $wp_id" );
