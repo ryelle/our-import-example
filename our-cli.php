@@ -66,7 +66,8 @@ class Our_Import extends WP_CLI_Command {
 
 		// Here we'd process the content for any URL changes, or
 		// anything else that amounts to string replacement.
-		
+		$content = str_replace( '%gallery%', '', $content );
+
 		// We would also do any author mapping here.
 		$author = $this->get_wordpress_user( $post['post_author'] );
 		
@@ -87,8 +88,41 @@ class Our_Import extends WP_CLI_Command {
 			// Now that we have the WP ID, we can go through the content
 			// to grab any <img>s & upload them into the WP media library. 
 			// -- you need the WP ID to attach the image to this post.
+			preg_match_all( '#<img(.*?)src="(.*?)"(.*?)>#', $content, $matches, PREG_SET_ORDER );
+			if ( is_array( $matches ) ) {
+				foreach ( $matches as $match ) {
+					$filename = $match[2]; // Grab the src URL
+					$img = $match[0]; // Save the HTML
+					
+					// Check out the URL, make sure it's OK to import
+					$filename = urldecode( $filename );
+					$filetype = wp_check_filetype( $filename );
+					if ( empty( $filetype['type'] ) ) // Unrecognized file type
+						continue;
+
+					if ( false !== strpos( $filename, '/oldurl/' ) ) {
+						$old_filename = $filename;
+					} else {
+						continue;
+					}
+
+					// Upload the file from the old web site to WordPress Media Library
+					$data = media_sideload_image( $old_filename, $wp_id );
+
+					if ( ! is_wp_error( $data ) ) {
+						$content = str_replace( $img, $data, $content );
+					} else {
+						WP_CLI::line( "Error: $old_filename ". $data->get_error_message() );
+					}
+				}
+			}
 			
-			WP_CLI::success( "Successfully imported post $wp_id" );
+			// $content now has the new image HTML, so we need to update the post
+			$result = wp_update_post( array( 'ID' => $wp_id, 'post_content' => $content ) );
+			if ( $result )
+				WP_CLI::success( "Successfully imported post $wp_id" );
+			else 
+				WP_CLI::error( "Post imported, but there was an error updating post $wp_id" );
 		} else {
 			WP_CLI::error( "Import of ".$post['imported_id']." failed." );
 		}
