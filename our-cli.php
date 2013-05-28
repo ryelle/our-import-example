@@ -28,8 +28,9 @@ class Our_Import extends WP_CLI_Command {
 	
 	/**
 	 * Create a function to get one post from the non-WP database
+	 * @synopsis <id>
 	 */
-	function update( $args = array(), $assoc_args = array() ) {
+	public function update( $args = array(), $assoc_args = array() ) {
 		$this->setup();
 		$id = absint( $args[0] );
 		
@@ -84,6 +85,12 @@ class Our_Import extends WP_CLI_Command {
 		$wp_id = wp_insert_post( $new_post );
 		if ( $wp_id ) {
 			update_post_meta( $wp_id, '_imported_id', $post['imported_id'] );
+			
+			// This content has a video embed, so we grab that here.
+			$sql = $this->db->query( 'SELECT metadata FROM metadata WHERE PostID = '. $post['imported_id'] .' AND metakey = "indVideoEmbedded"' );
+			$video = $sql->fetchColumn();
+			update_post_meta( $wp_id, '_wp_format_video', urldecode( $video ) );
+			set_post_format($wp_id, 'video' );
 			
 			// Now that we have the WP ID, we can go through the content
 			// to grab any <img>s & upload them into the WP media library. 
