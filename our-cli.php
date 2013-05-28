@@ -29,7 +29,7 @@ class Our_Import extends WP_CLI_Command {
 	/**
 	 * Create a function to get one post from the non-WP database
 	 */
-	function update( $args = array(), $assoc_args = array() ) {
+	public function update( $args = array(), $assoc_args = array() ) {
 		$this->setup();
 		$id = absint( $args[0] );
 		
