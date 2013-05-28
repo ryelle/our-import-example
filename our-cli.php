@@ -89,10 +89,12 @@ class Our_Import extends WP_CLI_Command {
 		update_post_meta( $wp_id, '_imported_id', $post['imported_id'] );
 		
 		// This content has a video embed, so we grab that here.
-		$sql = $this->db->query( 'SELECT metadata FROM metadata WHERE PostID = '. $post['imported_id'] .' AND metakey = "indVideoEmbedded"' );
-		$video = $sql->fetchColumn();
-		update_post_meta( $wp_id, '_wp_format_video', urldecode( $video ) );
-		set_post_format($wp_id, 'video' );
+		$sql = $this->db->query( 'SELECT metadata FROM metadata WHERE PostID = '. $post['imported_id'] .' AND metakey = "indAudioEmbedded"' );
+		$audio = $sql->fetchColumn();
+		if ( $audio ) {
+			update_post_meta( $wp_id, '_format_audio_embed', urldecode( $audio ) );
+			set_post_format($wp_id, 'audio' );
+		}
 		
 		// Tags.
 		$sql = "SELECT Tag FROM posttags WHERE postid = ".$post['imported_id'];
