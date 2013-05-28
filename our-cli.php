@@ -28,6 +28,7 @@ class Our_Import extends WP_CLI_Command {
 	
 	/**
 	 * Create a function to get one post from the non-WP database
+	 * @synopsis <id>
 	 */
 	public function update( $args = array(), $assoc_args = array() ) {
 		$this->setup();
