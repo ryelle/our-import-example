@@ -88,7 +88,8 @@ class Our_Import extends WP_CLI_Command {
 
 		update_post_meta( $wp_id, '_imported_id', $post['imported_id'] );
 		
-		// This content has a video embed, so we grab that here.
+		// This content can have an audio embed, so we grab that here,
+		// and make it an audio post if so
 		$sql = $this->db->query( 'SELECT metadata FROM metadata WHERE PostID = '. $post['imported_id'] .' AND metakey = "indAudioEmbedded"' );
 		$audio = $sql->fetchColumn();
 		if ( $audio ) {
