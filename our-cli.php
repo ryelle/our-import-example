@@ -34,6 +34,9 @@ class Our_Import extends WP_CLI_Command {
 		$this->setup();
 		$id = absint( $args[0] );
 		
+		// This particular database has a second page of content stored
+		// in a second table, postcontents- this is why it's important
+		// to know your source's structure.
 		$sql = "SELECT DISTINCT 
 				p.PostID AS imported_id, 
 				p.MemberID AS post_author, 
