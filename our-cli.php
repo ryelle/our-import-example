@@ -11,7 +11,7 @@ class Our_Import extends WP_CLI_Command {
 	 * Create the hello subcommand.
 	 * @param $args        array  arguments by position, starting at 0
 	 * @param $assoc_args  array  arguments passed in as --key=value, associative
-	 * @synopsis <name>
+	 * @synopsis <name> [optional-name]
 	 */
 	public function hello( $args = array(), $assoc_args = array() ) {
 		list( $name ) = $args;
@@ -30,7 +30,7 @@ class Our_Import extends WP_CLI_Command {
 	 * Create a function to get one post from the non-WP database
 	 * @synopsis <id>
 	 */
-	public function update( $args = array(), $assoc_args = array() ) {
+	public function single( $args = array(), $assoc_args = array() ) {
 		$this->setup();
 		$id = absint( $args[0] );
 		
@@ -44,7 +44,7 @@ class Our_Import extends WP_CLI_Command {
 				p.Slug AS post_name, 
 				p.PublishDate AS post_date,
 				p.Contents AS post_content,
-				c.ContinuedContents AS more_contents
+				c.ContinuedContents AS more_content
 			FROM posts p
 			LEFT JOIN postcontents c ON c.postid = p.postid
 			WHERE p.PostID = $id
@@ -52,11 +52,38 @@ class Our_Import extends WP_CLI_Command {
 		$stmt = $this->db->prepare( $sql );
 		$stmt->execute();
 		$post = $stmt->fetch( PDO::FETCH_ASSOC );
-		
 		$this->_import( $post );
 	}
 	
-	
+	/**
+	 * Create a function to get all posts from the non-WP database
+	 */
+	public function all( $args = array(), $assoc_args = array() ) {
+		$this->setup();
+		$postid = isset( $assoc_args['after'] )? $assoc_args['after']: 0;
+
+		$sql = "SELECT DISTINCT 
+				p.PostID AS imported_id, 
+				p.MemberID AS post_author, 
+				p.Title AS post_title,
+				p.Slug AS post_name, 
+				p.PublishDate AS post_date, 
+				p.Contents AS post_content,
+				c.ContinuedContents AS more_content
+			FROM posts p
+			LEFT JOIN postcontents c ON c.postid = p.postid
+			WHERE p.postid > '$postid'
+			ORDER BY p.postid ASC";
+
+		$stmt = $this->db->prepare( $sql );
+		$stmt->execute();
+		while ( $post = $stmt->fetch( PDO::FETCH_ASSOC ) ) {
+			$this->_import( $post );
+		}
+
+		WP_CLI::success( "Posts updated." );
+	}
+
 	/**
 	 * Function to process a single row from the non-WP database, and insert into new DB
 	 */
@@ -81,7 +108,7 @@ class Our_Import extends WP_CLI_Command {
 			'post_date'         => $post['post_date'],
 			'post_name'         => $post['post_name'],
 			'post_title'        => $post['post_title'],
-			// We're setting this for all imported posts, 
+			// We're setting this for all imported posts
 			'post_status'       => 'publish',
 			'post_type'         => 'post'
 		);
