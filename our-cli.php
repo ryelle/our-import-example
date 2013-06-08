@@ -29,6 +29,28 @@ class Our_Import extends WP_CLI_Command {
 	}
 	
 	/**
+	 * Reset the original database. This does assume the connection 
+	 * info for the source database is the same for the WP DB.
+	 * @todo Switch over to using WP_CLI::launch (https://github.com/wp-cli/wp-cli/blob/master/php/class-wp-cli.php#L221)
+	 * @synopsis <file.sql>
+	 */
+	function reset( $args = array(), $assoc_args = array() ) {
+		global $wpdb;
+		$wp_database = $wpdb->get_var( "SELECT DATABASE();" );
+		$reset_file = $args[0];
+		if ( file_exists( __DIR__ . $reset_file ) ){
+			$command = "mysql -u $user -p$pass -h $host -D $wp_database < ";
+			$output = shell_exec( $command . __DIR__ . $reset_file );
+			if ( null === $output )
+				WP_CLI::success( 'Database reset' );
+			else
+				WP_CLI::error( 'Error occured: '.$output );
+		} else {
+			WP_CLI::error( "Reset file `$reset_file` does not exist." );
+		}
+	}
+	
+	/**
 	 * Create a function to get one post from the non-WP database
 	 * @synopsis <id>
 	 */

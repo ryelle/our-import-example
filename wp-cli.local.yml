@@ -1,4 +1,5 @@
 user: 1
+path: /srv/www/wordpress-default
 database:
 	user: meetup
 	pass: meetup
