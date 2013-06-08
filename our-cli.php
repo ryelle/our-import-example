@@ -5,7 +5,9 @@
  * the public methods are the subcommands.
  */
 class Our_Import extends WP_CLI_Command {
-	private $db;
+	private $config, $db;
+	private $categories = array();
+	private $authors = array();
 
 	/**
 	 * Create the hello subcommand.
@@ -57,10 +59,14 @@ class Our_Import extends WP_CLI_Command {
 	
 	/**
 	 * Create a function to get all posts from the non-WP database
+	 * @synopsis [--after=id]
 	 */
 	public function all( $args = array(), $assoc_args = array() ) {
 		$this->setup();
 		$postid = isset( $assoc_args['after'] )? $assoc_args['after']: 0;
+		
+		// Import all categories & save AOL/WP ID mapping
+		$this->categories = $this->categories();
 
 		$sql = "SELECT DISTINCT 
 				p.PostID AS imported_id, 
@@ -117,10 +123,14 @@ class Our_Import extends WP_CLI_Command {
 		if ( ! $wp_id )
 			return false;
 
+		// Attach the source data's ID to the WP post- if you learn later that you
+		// need to grab some meta, you can loop through the WP posts, rather than
+		// re-importing everything.
 		update_post_meta( $wp_id, '_imported_id', $post['imported_id'] );
 		
-		// This content can have an audio embed, so we grab that here,
-		// and make it an audio post if so
+		// Grab the post meta, now that we have a WP post to attach to.
+		// Depending on your source content, you could have grabbed this in the post query,
+		// or like this example, you need to grab this from a new table.
 		$sql = $this->db->query( 'SELECT metadata FROM metadata WHERE PostID = '. $post['imported_id'] .' AND metakey = "indAudioEmbedded"' );
 		$audio = $sql->fetchColumn();
 		if ( $audio ) {
@@ -140,17 +150,27 @@ class Our_Import extends WP_CLI_Command {
 		$term_stmt = $this->db->query( $sql );
 		$terms = $term_stmt->fetchAll();
 		$terms = wp_list_pluck( $terms, 'CategoryID' );
-		array_walk( $terms, array( $this, '_convert_to_wp_cat' ) );
+		array_walk( $terms, array( $this, '_convert_to_wp_term' ) );
 		wp_set_post_terms( $wp_id, $terms, 'category' );
 		
-		// Now that we have the WP ID, we can go through the content
-		// to grab any <img>s & upload them into the WP media library. 
-		// -- you need the WP ID to attach the image to this post.
+		// Import images into the WP Media Library
+		$this->_do_images( $wp_id, $content );
+
+		WP_CLI::success( "Successfully imported post $wp_id" );
+	}
+
+	/**
+	 * Import images: Find <img>s, grab URLS & upload them to Media Library
+	 * Update WP post with new image tags
+	 */
+	private function _do_images( $wp_id, $content ) {
 		preg_match_all( '#<img(.*?)src="(.*?)"(.*?)>#', $content, $matches, PREG_SET_ORDER );
 		if ( is_array( $matches ) ) {
 			foreach ( $matches as $match ) {
 				$filename = $match[2]; // Grab the src URL
 				$img = $match[0]; // Save the HTML
+
+				// @todo: Check if there's already an attachment in the DB with this filename
 				
 				// Check out the URL, make sure it's OK to import
 				$filename = urldecode( $filename );
@@ -158,13 +178,15 @@ class Our_Import extends WP_CLI_Command {
 				if ( empty( $filetype['type'] ) ) // Unrecognized file type
 					continue;
 
-				if ( false !== strpos( $filename, 'redradar.net' ) ) {
+				// Make sure we're not pulling third-party hosted images, only things from this site.
+				if ( false !== strpos( $filename, 'source domain' ) ) {
 					$old_filename = $filename;
 				} else {
 					continue;
 				}
 
-				// Upload the file from the old web site to WordPress Media Library
+				// Upload the file from the old web site to WordPress Media Library,
+				// returns an image tag.
 				$data = media_sideload_image( $old_filename, $wp_id );
 
 				if ( ! is_wp_error( $data ) ) {
@@ -175,24 +197,21 @@ class Our_Import extends WP_CLI_Command {
 			}
 			
 			// $content's been updated with the new HTML, so we need to re-save it
+			// could also bypass wp_update_post's filters etc with $wpdb->update().
 			wp_update_post( array( 'ID' => $wp_id, 'post_content' => $content ) );
 		}
-
-		WP_CLI::success( "Successfully imported post $wp_id" );
 	}
 
 	/**
-	 * Set up the PDO object. Connection info is hardcoded for this example.
+	 * Set up the PDO object & grab connection info from wp-cli.local.yml.
+	 * This file is loaded by wp-cli when wp is run from the same directory,
+	 * and we can pull the DB info from it - we can also set the URL for a
+	 * networked install, and the path, if wp-cli complains about that.
 	 */
 	private function setup() {
-		$database = array(
-			'host'     => '127.0.0.1',
-			'port'     => '3306',
-			'name' => 'example_custom',
-			'user'     => 'meetup',
-			'pass'     => 'meetup',
-		);
-		extract( $database, EXTR_SKIP );
+		$defaults = spyc_load_file( __DIR__.'/wp-cli.local.yml' );
+		$this->config = wp_parse_args( $assoc_args, $defaults );
+		extract( $this->config['database'], EXTR_SKIP );
 		try {
 			$db = new PDO( 'mysql:host=' . $host . ';port=' . $port . ';dbname=' . $name, $user, $pass, array( PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES \'UTF8\'' ) );
 			$this->db = $db;
@@ -204,15 +223,55 @@ class Our_Import extends WP_CLI_Command {
 	}
 	
 	/**
-	 * In a real import, this would be a real function.
-	 *  if your custom DB stores emails, you can use email_exists
-	 *  to check if that user has a WP account, and create using 
-	 *  wp_insert_user if not. 
+	 * Convert source author to WP author
+	 *  If we haven't seen this author already, grab its data
+	 *  and check if the email is assoc'd with a WP user.
+	 *  Insert the user with wp_insert_user if not.
 	 */
 	private function get_wordpress_user( $author ) {
-		return $author;
+		if ( -1 == $id )
+			return 1;
+
+		if ( isset( $this->authors[ $id ] ) )
+			return $this->authors[ $id ];
+		
+		$sql = "SELECT m.memberid, m.email, p.Slug, p.Byline, p.FirstName, p.LastName, p.Bio
+			FROM members m 
+			JOIN profiles p ON p.memberid = m.memberid
+			WHERE m.memberid = ?";
+		$stmt = $this->db->prepare( $sql );
+		$stmt->execute( array( $id ) );
+		$user = $stmt->fetch( PDO::FETCH_ASSOC );
+		if ( $user_id = email_exists( $user[ 'email' ] ) ) {
+			$this->authors[ $id ] = $user_id;
+			return $user_id;
+		}
+		
+		$user_id = wp_insert_user( array (
+			'user_login' => $user[ 'email' ],
+			'user_email' => $user[ 'email' ],
+			'user_nicename' => $user[ 'Slug' ],
+			'display_name' => $user[ 'Byline' ],
+			'first_name' => $user[ 'FirstName' ],
+			'last_name' => $user[ 'LastName' ],
+			'description' => $user[ 'Bio' ],
+			'user_pass' => wp_generate_password(),
+		) );
+		if ( ! is_wp_error( $user_id ) ) {
+			$this->authors[ $id ] = $user_id;
+			return $user_id; 
+		}
+		
+		return -1;
 	}
-	private function _convert_to_wp_cat( $cat ) {
+	
+	/**
+	 * Convert source terms to WP term IDs, importing if necessary.
+	 * Store the term -> ID as we see them, so we don't need to make
+	 * unnecessary database calls.
+	 * (this function could differ depending on how you handle taxonomies)
+	 */
+	private function _convert_to_wp_term( $cat ) {
 		return $cat;
 	}
 
