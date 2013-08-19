@@ -4,6 +4,8 @@ An example command for WP-CLI, to import content from a custom CMS's database. Y
 
 This example was presented at the Boston WP Meetup in May 2013. [The slides accompanying it can be found here](http://redradar.net/slides/wp-cli/).
 
+The starter script that this leads to is in the [`starter-script`](https://github.com/ryelle/our-import-example/tree/starter-script) branch.
+
 ## Step 1: Files [`step-one`](https://github.com/ryelle/our-import-example/tree/step-one)
 In this step we've created `our-plugin.php` & `our-cli.php`. We put these files in a folder in `wp-content/plugins`, and activate it in the WP admin. We've also set up the class & named our command `ourport`.
 
