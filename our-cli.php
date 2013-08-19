@@ -29,25 +29,11 @@ class Our_Import extends WP_CLI_Command {
 	}
 	
 	/**
-	 * Reset the original database. This does assume the connection 
-	 * info for the source database is the same for the WP DB.
-	 * @todo Switch over to using WP_CLI::launch (https://github.com/wp-cli/wp-cli/blob/master/php/class-wp-cli.php#L221)
-	 * @synopsis <file.sql>
+	 * Remove this, as there is a built-in function for this now:
+	 * `wp site empty` 
 	 */
 	function reset( $args = array(), $assoc_args = array() ) {
-		global $wpdb;
-		$wp_database = $wpdb->get_var( "SELECT DATABASE();" );
-		$reset_file = $args[0];
-		if ( file_exists( __DIR__ . $reset_file ) ){
-			$command = "mysql -u $user -p$pass -h $host -D $wp_database < ";
-			$output = shell_exec( $command . __DIR__ . $reset_file );
-			if ( null === $output )
-				WP_CLI::success( 'Database reset' );
-			else
-				WP_CLI::error( 'Error occured: '.$output );
-		} else {
-			WP_CLI::error( "Reset file `$reset_file` does not exist." );
-		}
+		WP_CLI::error( "Don't replicate core commands-- use `wp site empty`." );
 	}
 	
 	/**
