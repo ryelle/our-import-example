@@ -32,8 +32,8 @@ By now we've tried the import and can see it imports a post, but maybe we also n
 The important functions here are [`media_sideload_image`](http://codex.wordpress.org/Function_Reference/media_sideload_image) & [`wp_update_post`](http://codex.wordpress.org/Function_Reference/wp_update_post).
 
 
-## Step 6: Import all posts
-TBA, not presented at the meetup. Here we would create a new subcommand, `import` perhaps? that would pull out all (or a subset) of the source DB's posts, and loop over them, calling `_import` on each.
+## Step 6: Import all posts [`step-six`](https://github.com/ryelle/our-import-example/tree/step-six)
+Create a new subcommand to grab all items from the database. While there are items, we'll grab an item and run `import` on it, just like we do in the single post step. You can pass arguments here to skip certain posts (maybe you have a list of IDs already imported).
 
 
 ## References
